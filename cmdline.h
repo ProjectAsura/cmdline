@@ -27,6 +27,12 @@
 
 #pragma once
 
+#if defined(_MSC_VER)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif//NOMINMAX
+#endif//defined(_MSC_VER)
+
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -36,7 +42,13 @@
 #include <typeinfo>
 #include <cstring>
 #include <algorithm>
+#if defined(_MSC_VER)
+#include <Windows.h>
+#include <DbgHelp.h>
+#pragma comment(lib, "DbgHelp.lib")
+#else
 #include <cxxabi.h>
+#endif
 #include <cstdlib>
 
 namespace cmdline{
@@ -104,8 +116,13 @@ Target lexical_cast(const Source &arg)
 
 static inline std::string demangle(const std::string &name)
 {
+#if defined(_MSC_VER)
+    char* p = (char*)malloc(1024 * sizeof(char));
+    ::UnDecorateSymbolName(name.c_str(), p, 1024, 0);
+#else
   int status=0;
   char *p=abi::__cxa_demangle(name.c_str(), 0, 0, &status);
+#endif//defined(_MSC_VER)
   std::string ret(p);
   free(p);
   return ret;
@@ -533,7 +550,7 @@ public:
   void parse_check(const std::vector<std::string> &args){
     if (!options.count("help"))
       add("help", '?', "print this message");
-    check(args.size(), parse(args));
+    check(int(args.size()), parse(args));
   }
 
   void parse_check(int argc, char *argv[]){
@@ -721,7 +738,7 @@ private:
         actual=read(value);
         has=true;
       }
-      catch(const std::exception &e){
+      catch(const std::exception&){
         return false;
       }
       return true;
@@ -757,9 +774,9 @@ private:
     }
 
   protected:
-    std::string full_description(const std::string &desc){
+    std::string full_description(const std::string &args){
       return
-        desc+" ("+detail::readable_typename<T>()+
+        args+" ("+detail::readable_typename<T>()+
         (need?"":" [="+detail::default_value<T>(def)+"]")
         +")";
     }
